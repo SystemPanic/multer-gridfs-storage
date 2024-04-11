@@ -213,7 +213,9 @@ export class GridFsStorage extends EventEmitter implements StorageEngine {
 	_removeFile(request: any, file, cb: NodeCallback): void {
 		const options = {bucketName: file.bucketName};
 		const bucket = new GridFSBucket(this.db, options);
-		bucket.delete(file.id, cb);
+		bucket.delete(file.id).then(() => {
+				cb(null);
+		}).catch(cb);
 	}
 
 	/**
@@ -348,7 +350,13 @@ export class GridFsStorage extends EventEmitter implements StorageEngine {
 				reject(streamError);
 			};
 
+			const writeStream = this.createStream(streamOptions);
+
 			const emitFile = (f) => {
+				if (f === undefined) {
+					// @ts-ignore - outdated types file this does exist
+					f = writeStream.gridFSFile;
+				}
 				const storedFile: GridFile = {
 					id: f._id,
 					filename: f.filename,
@@ -363,8 +371,6 @@ export class GridFsStorage extends EventEmitter implements StorageEngine {
 				this.emit('file', storedFile);
 				resolve(storedFile);
 			};
-
-			const writeStream = this.createStream(streamOptions);
 
 			// Multer already handles the error event on the readable stream(Busboy).
 			// Invoking the callback with an error will cause file removal and aborting routines to be called twice
